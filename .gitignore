@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[codz]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtualenvs
+.venv/
+venv/
+env/
+
+# Local config
+.env
+.vendor/
+
+# Build artifacts
+build/
+dist/
