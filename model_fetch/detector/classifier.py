@@ -44,6 +44,9 @@ def _classify_from_filename(path: Path) -> tuple[str, float, str] | None:
 
 
 def _classify_from_size(path: Path) -> tuple[str, float, str] | None:
+    if not path.exists():
+        return None
+
     size_bytes = path.stat().st_size
     size_mb = size_bytes / (1024 * 1024)
 
@@ -66,13 +69,14 @@ def classify_file(path: Path, metadata: dict[str, object] | None = None) -> Clas
     if filename_choice:
         candidates.append(filename_choice)
 
-    header_choice = classify_safetensors_header(path)
-    if header_choice:
-        candidates.append(header_choice)
+    if path.exists():
+        header_choice = classify_safetensors_header(path)
+        if header_choice:
+            candidates.append(header_choice)
 
-    size_choice = _classify_from_size(path)
-    if size_choice:
-        candidates.append(size_choice)
+        size_choice = _classify_from_size(path)
+        if size_choice:
+            candidates.append(size_choice)
 
     model_type, confidence, method = choose_best(candidates)
     return Classification(model_type=model_type, confidence=confidence, method=method)
