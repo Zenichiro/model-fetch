@@ -4,7 +4,7 @@ import json
 import re
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlparse
-from urllib.request import Request, urlopen
+from urllib.request import ProxyHandler, Request, build_opener, urlopen
 
 from model_fetch.sources.base import ResolvedItem
 
@@ -20,12 +20,21 @@ def _api_base_for_host(host: str) -> str:
     return "https://civitai.com/api/v1"
 
 
-def _fetch_json(url: str, api_key: str | None = None) -> dict[str, object]:
+def _fetch_json(
+    url: str,
+    api_key: str | None = None,
+    *,
+    proxy_url: str | None = None,
+) -> dict[str, object]:
     headers = {}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
     request = Request(url=url, headers=headers, method="GET")
-    with urlopen(request, timeout=15) as response:
+    opener = None
+    if proxy_url:
+        opener = build_opener(ProxyHandler({"http": proxy_url, "https": proxy_url}))
+    open_fn = opener.open if opener else urlopen
+    with open_fn(request, timeout=15) as response:
         return json.loads(response.read().decode("utf-8"))
 
 
@@ -76,9 +85,19 @@ def _build_resolved_item(
     )
 
 
-def _resolve_version_id(version_id: str, raw_input: str, host: str, api_key: str | None) -> ResolvedItem:
+def _resolve_version_id(
+    version_id: str,
+    raw_input: str,
+    host: str,
+    api_key: str | None,
+    proxy_url: str | None,
+) -> ResolvedItem:
     api_base = _api_base_for_host(host)
-    payload = _fetch_json(f"{api_base}/model-versions/{version_id}", api_key=api_key)
+    payload = _fetch_json(
+        f"{api_base}/model-versions/{version_id}",
+        api_key=api_key,
+        proxy_url=proxy_url,
+    )
     file_payload = _select_primary_file(payload.get("files", [])) if isinstance(payload, dict) else None
     download_url = None
     if isinstance(file_payload, dict):
@@ -100,9 +119,19 @@ def _resolve_version_id(version_id: str, raw_input: str, host: str, api_key: str
     )
 
 
-def _resolve_model_id(model_id: str, raw_input: str, host: str, api_key: str | None) -> ResolvedItem:
+def _resolve_model_id(
+    model_id: str,
+    raw_input: str,
+    host: str,
+    api_key: str | None,
+    proxy_url: str | None,
+) -> ResolvedItem:
     api_base = _api_base_for_host(host)
-    payload = _fetch_json(f"{api_base}/models/{model_id}", api_key=api_key)
+    payload = _fetch_json(
+        f"{api_base}/models/{model_id}",
+        api_key=api_key,
+        proxy_url=proxy_url,
+    )
     versions = payload.get("modelVersions", []) if isinstance(payload, dict) else []
     if not isinstance(versions, list) or not versions:
         raise ValueError(f"CivitAI model {model_id} has no downloadable versions")
@@ -133,16 +162,34 @@ def _resolve_model_id(model_id: str, raw_input: str, host: str, api_key: str | N
     )
 
 
-def resolve_civitai_item(source: str, identifier: str, api_key: str | None = None) -> ResolvedItem:
+def resolve_civitai_item(
+    source: str,
+    identifier: str,
+    api_key: str | None = None,
+    *,
+    proxy_url: str | None = None,
+) -> ResolvedItem:
     normalized_source = source.strip().lower()
     if normalized_source != "civitai":
         raise ValueError("unsupported source")
 
     if _CIVITAI_ID_PATTERN.fullmatch(identifier):
         try:
-            return _resolve_version_id(identifier, f"{source} {identifier}", "civitai.com", api_key)
+            return _resolve_version_id(
+                identifier,
+                f"{source} {identifier}",
+                "civitai.com",
+                api_key,
+                proxy_url,
+            )
         except (HTTPError, URLError):
-            return _resolve_model_id(identifier, f"{source} {identifier}", "civitai.com", api_key)
+            return _resolve_model_id(
+                identifier,
+                f"{source} {identifier}",
+                "civitai.com",
+                api_key,
+                proxy_url,
+            )
 
     parsed = urlparse(identifier)
     if parsed.scheme in {"http", "https"} and (
@@ -155,6 +202,7 @@ def resolve_civitai_item(source: str, identifier: str, api_key: str | None = Non
                 identifier,
                 parsed.netloc,
                 api_key,
+                proxy_url,
             )
             if parsed.query:
                 resolved = ResolvedItem(
@@ -170,8 +218,8 @@ def resolve_civitai_item(source: str, identifier: str, api_key: str | None = Non
             query = parse_qs(parsed.query)
             version_id = query.get("modelVersionId", [None])[0]
             if isinstance(version_id, str) and _CIVITAI_ID_PATTERN.fullmatch(version_id):
-                return _resolve_version_id(version_id, identifier, parsed.netloc, api_key)
-            return _resolve_model_id(page_match.group("id"), identifier, parsed.netloc, api_key)
+                return _resolve_version_id(version_id, identifier, parsed.netloc, api_key, proxy_url)
+            return _resolve_model_id(page_match.group("id"), identifier, parsed.netloc, api_key, proxy_url)
 
         return ResolvedItem(raw_input=identifier, source="civitai", url=identifier)
 

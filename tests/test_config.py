@@ -16,6 +16,8 @@ def test_load_config_from_env_file(tmp_path: Path) -> None:
                 "MODEL_BASE_DIR=/models",
                 "TEMP_DOWNLOAD_DIR=/tmp/model-fetch-test",
                 "SAFETCH_PATH=/usr/local/bin/safetch",
+                "PROXY_HOST=10.0.0.5",
+                "PROXY_PORT=9999",
                 "CIVITAI_USE_PROXY=false",
             ]
         ),
@@ -26,6 +28,8 @@ def test_load_config_from_env_file(tmp_path: Path) -> None:
     assert str(config.model_base_dir) == "/models"
     assert str(config.temp_download_dir) == "/tmp/model-fetch-test"
     assert config.safetch_path == "/usr/local/bin/safetch"
+    assert config.proxy_host == "10.0.0.5"
+    assert config.proxy_port == 9999
     assert config.civitai_use_proxy is False
 
 

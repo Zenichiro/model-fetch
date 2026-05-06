@@ -52,6 +52,11 @@ Default config path:
 
 Defaults are loaded first, then `.env`, then CLI overrides.
 
+Proxy settings used for source metadata requests:
+
+- `PROXY_HOST`
+- `PROXY_PORT`
+
 ## Download backend
 
 `safetch` is required and is called as a subprocess.

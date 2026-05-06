@@ -12,6 +12,8 @@ class AppConfig:
     temp_download_dir: Path = Path("/tmp/model-fetch")
     safetch_path: str = "safetch"
     safetch_no_resume: bool = False
+    proxy_host: str = "127.0.0.1"
+    proxy_port: int = 8888
     civitai_api_key: str | None = None
     civitai_use_mirror: bool = False
     civitai_use_proxy: bool = True
@@ -52,6 +54,8 @@ def load_config(config_path: str | Path | None = None) -> AppConfig:
         temp_download_dir=Path(data.get("TEMP_DOWNLOAD_DIR") or "/tmp/model-fetch"),
         safetch_path=data.get("SAFETCH_PATH") or "safetch",
         safetch_no_resume=_parse_bool(data.get("SAFETCH_NO_RESUME"), False),
+        proxy_host=data.get("PROXY_HOST") or "127.0.0.1",
+        proxy_port=int(data.get("PROXY_PORT") or 8888),
         civitai_api_key=data.get("CIVITAI_API_KEY") or None,
         civitai_use_mirror=_parse_bool(data.get("CIVITAI_USE_MIRROR"), False),
         civitai_use_proxy=_parse_bool(data.get("CIVITAI_USE_PROXY"), True),

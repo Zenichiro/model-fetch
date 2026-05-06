@@ -24,13 +24,33 @@ def _parse_batch_file(path: Path) -> list[str]:
 
 
 def _resolve_item(source: str | None, identifier: str, config: AppConfig) -> tuple[str, object]:
+    civitai_proxy_url = None
+    if config.civitai_use_proxy:
+        civitai_proxy_url = f"http://{config.proxy_host}:{config.proxy_port}"
+
     if source:
         if source.lower() == "civitai":
-            return ("civitai", resolve_civitai_item(source, identifier, api_key=config.civitai_api_key))
+            return (
+                "civitai",
+                resolve_civitai_item(
+                    source,
+                    identifier,
+                    api_key=config.civitai_api_key,
+                    proxy_url=civitai_proxy_url,
+                ),
+            )
         raise ValueError(f"unsupported source: {source}")
     resolved = resolve_direct_url(identifier)
     if resolved.source == "civitai":
-        return ("civitai", resolve_civitai_item("civitai", identifier, api_key=config.civitai_api_key))
+        return (
+            "civitai",
+            resolve_civitai_item(
+                "civitai",
+                identifier,
+                api_key=config.civitai_api_key,
+                proxy_url=civitai_proxy_url,
+            ),
+        )
     return ("direct", resolved)
 
 
@@ -136,6 +156,8 @@ def run(argv: list[str] | None = None) -> int:
             temp_download_dir=config.temp_download_dir,
             safetch_path=config.safetch_path,
             safetch_no_resume=config.safetch_no_resume,
+            proxy_host=config.proxy_host,
+            proxy_port=config.proxy_port,
             civitai_api_key=config.civitai_api_key,
             civitai_use_mirror=config.civitai_use_mirror,
             civitai_use_proxy=config.civitai_use_proxy,
