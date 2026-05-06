@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 from model_fetch.config import AppConfig
@@ -73,11 +74,17 @@ def run_safetch(
         dry_run=dry_run,
         no_resume=no_resume,
     )
-    completed = subprocess.run(command, capture_output=True, text=True, check=False)
+    completed = subprocess.run(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=None,
+        text=True,
+        check=False,
+    )
     stdout = completed.stdout.strip()
 
     if not stdout:
-        raise SafetchError("safetch produced no JSON output")
+        raise SafetchError(f"safetch produced no JSON output (exit code {completed.returncode})")
 
     try:
         payload = json.loads(stdout)

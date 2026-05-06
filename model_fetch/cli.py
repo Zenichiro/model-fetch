@@ -204,7 +204,13 @@ def run(argv: list[str] | None = None) -> int:
                 no_resume=ns.no_resume,
             )
             if not safetch_result.get("ok"):
-                raise SafetchError(str(safetch_result.get("message") or "download failed"))
+                status = safetch_result.get("status")
+                message = safetch_result.get("message")
+                exit_code = safetch_result.get("exit_code")
+                details = message or status or "download failed"
+                if exit_code not in (None, ""):
+                    details = f"{details} (exit code {exit_code})"
+                raise SafetchError(str(details))
             if downloaded_file is None:
                 raise SafetchError("could not determine downloaded file")
 
