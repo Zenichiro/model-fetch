@@ -63,6 +63,15 @@ def _fetch_json(
         return json.loads(response.read().decode("utf-8"))
 
 
+def _is_soft_metadata_error(exc: Exception) -> bool:
+    if isinstance(exc, HTTPError):
+        return 500 <= exc.code <= 599
+    if isinstance(exc, URLError):
+        message = str(exc.reason if getattr(exc, "reason", None) else exc)
+        return " 5" in message or "returned error: 5" in message or "503" in message
+    return False
+
+
 def _select_primary_file(files: list[object]) -> dict[str, object] | None:
     dict_files = [item for item in files if isinstance(item, dict)]
     if not dict_files:
@@ -207,7 +216,14 @@ def resolve_civitai_item(
                 api_key,
                 proxy_url,
             )
-        except (HTTPError, URLError):
+        except (HTTPError, URLError) as exc:
+            if _is_soft_metadata_error(exc):
+                return ResolvedItem(
+                    raw_input=f"{source} {identifier}",
+                    source="civitai",
+                    url=f"https://civitai.com/api/download/models/{identifier}",
+                    metadata={"identifier_type": "numeric_fallback"},
+                )
             return _resolve_model_id(
                 identifier,
                 f"{source} {identifier}",
@@ -222,13 +238,18 @@ def resolve_civitai_item(
     ):
         download_match = _DOWNLOAD_PATH_PATTERN.fullmatch(parsed.path)
         if download_match:
-            resolved = _resolve_version_id(
-                download_match.group("id"),
-                identifier,
-                parsed.netloc,
-                api_key,
-                proxy_url,
-            )
+            try:
+                resolved = _resolve_version_id(
+                    download_match.group("id"),
+                    identifier,
+                    parsed.netloc,
+                    api_key,
+                    proxy_url,
+                )
+            except (HTTPError, URLError) as exc:
+                if _is_soft_metadata_error(exc):
+                    return ResolvedItem(raw_input=identifier, source="civitai", url=identifier)
+                raise
             if parsed.query:
                 resolved = ResolvedItem(
                     raw_input=resolved.raw_input,
@@ -243,8 +264,23 @@ def resolve_civitai_item(
             query = parse_qs(parsed.query)
             version_id = query.get("modelVersionId", [None])[0]
             if isinstance(version_id, str) and _CIVITAI_ID_PATTERN.fullmatch(version_id):
-                return _resolve_version_id(version_id, identifier, parsed.netloc, api_key, proxy_url)
-            return _resolve_model_id(page_match.group("id"), identifier, parsed.netloc, api_key, proxy_url)
+                try:
+                    return _resolve_version_id(version_id, identifier, parsed.netloc, api_key, proxy_url)
+                except (HTTPError, URLError) as exc:
+                    if _is_soft_metadata_error(exc):
+                        return ResolvedItem(
+                            raw_input=identifier,
+                            source="civitai",
+                            url=f"https://civitai.com/api/download/models/{version_id}",
+                            metadata={"identifier_type": "page_version_fallback"},
+                        )
+                    raise
+            try:
+                return _resolve_model_id(page_match.group("id"), identifier, parsed.netloc, api_key, proxy_url)
+            except (HTTPError, URLError) as exc:
+                if _is_soft_metadata_error(exc):
+                    return ResolvedItem(raw_input=identifier, source="civitai", url=identifier)
+                raise
 
         return ResolvedItem(raw_input=identifier, source="civitai", url=identifier)
 
