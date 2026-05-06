@@ -28,6 +28,7 @@ def _classify_from_metadata(metadata: dict[str, object]) -> tuple[str, float, st
         "controlnet": "controlnet",
         "upscaler": "upscalers",
         "embedding": "embeddings",
+        "textualinversion": "embeddings",
         "hypernetwork": "hypernetworks",
     }
     if normalized in mapping:

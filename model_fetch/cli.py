@@ -23,12 +23,15 @@ def _parse_batch_file(path: Path) -> list[str]:
     return items
 
 
-def _resolve_item(source: str | None, identifier: str) -> tuple[str, object]:
+def _resolve_item(source: str | None, identifier: str, config: AppConfig) -> tuple[str, object]:
     if source:
         if source.lower() == "civitai":
-            return ("civitai", resolve_civitai_item(source, identifier))
+            return ("civitai", resolve_civitai_item(source, identifier, api_key=config.civitai_api_key))
         raise ValueError(f"unsupported source: {source}")
-    return ("direct", resolve_direct_url(identifier))
+    resolved = resolve_direct_url(identifier)
+    if resolved.source == "civitai":
+        return ("civitai", resolve_civitai_item("civitai", identifier, api_key=config.civitai_api_key))
+    return ("direct", resolved)
 
 
 def _split_entry(entry: str) -> tuple[str | None, str]:
@@ -148,9 +151,9 @@ def run(argv: list[str] | None = None) -> int:
     for entry in entries:
         entry_source, entry_identifier = _split_entry(entry)
         try:
-            resolved_source, resolved = _resolve_item(entry_source, entry_identifier)
+            resolved_source, resolved = _resolve_item(entry_source, entry_identifier, config)
             if ns.dry_run:
-                inferred_name = Path(resolved.url.split("?")[0]).name or "downloaded-file"
+                inferred_name = str(resolved.metadata.get("filename") or Path(resolved.url.split("?")[0]).name or "downloaded-file")
                 target_name = ns.output or inferred_name
                 classification = classify_file(Path(target_name), metadata=resolved.metadata)
                 final_type = classification.model_type if classification.confidence >= 0.70 or not auto else "unknown"
