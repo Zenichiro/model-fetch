@@ -2,7 +2,12 @@ from model_fetch.sources.civitai import resolve_civitai_item
 
 
 def test_resolve_civitai_numeric_id_to_download_url(monkeypatch) -> None:
-    def fake_fetch_json(url: str, api_key: str | None = None) -> dict[str, object]:
+    def fake_fetch_json(
+        url: str,
+        api_key: str | None = None,
+        *,
+        proxy_url: str | None = None,
+    ) -> dict[str, object]:
         assert url.endswith("/api/v1/model-versions/2807896")
         assert api_key == "secret"
         return {
@@ -26,7 +31,12 @@ def test_resolve_civitai_numeric_id_to_download_url(monkeypatch) -> None:
 
 
 def test_resolve_civitai_download_url_preserves_query(monkeypatch) -> None:
-    def fake_fetch_json(url: str, api_key: str | None = None) -> dict[str, object]:
+    def fake_fetch_json(
+        url: str,
+        api_key: str | None = None,
+        *,
+        proxy_url: str | None = None,
+    ) -> dict[str, object]:
         return {
             "downloadUrl": "https://civitai.com/api/download/models/2807896",
             "model": {"type": "Checkpoint"},

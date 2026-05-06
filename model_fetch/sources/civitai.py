@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
+import subprocess
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlparse
 from urllib.request import ProxyHandler, Request, build_opener, urlopen
@@ -26,6 +28,29 @@ def _fetch_json(
     *,
     proxy_url: str | None = None,
 ) -> dict[str, object]:
+    curl_path = shutil.which("curl")
+    if curl_path:
+        command = [
+            curl_path,
+            "--silent",
+            "--show-error",
+            "--location",
+            "--fail",
+            "--max-time",
+            "15",
+        ]
+        if proxy_url:
+            command.extend(["--proxy", proxy_url])
+        if api_key:
+            command.extend(["--header", f"Authorization: Bearer {api_key}"])
+        command.append(url)
+
+        completed = subprocess.run(command, capture_output=True, text=True, check=False)
+        if completed.returncode != 0:
+            message = completed.stderr.strip() or completed.stdout.strip() or "curl request failed"
+            raise URLError(message)
+        return json.loads(completed.stdout)
+
     headers = {}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
